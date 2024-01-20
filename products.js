@@ -112,7 +112,7 @@ const app = Vue.createApp({
                 .then(res => {
                     alert(res.data.message);
                     delProductModal.hide();
-                    this.getData;
+                    this.getData();
                 })
         },
 
