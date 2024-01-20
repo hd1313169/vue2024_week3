@@ -93,7 +93,7 @@ const app = Vue.createApp({
         createImages() {
             this.tempProduct.imagesUrl = [];
             this.tempProduct.imagesUrl.push('');
-        }
+        },
     },
     mounted() {
         //彈出視窗
