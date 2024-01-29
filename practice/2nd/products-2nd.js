@@ -1,18 +1,13 @@
-// V 1. [js] 串接 vue 
-// V 2. [js] 建立data ->data
-// V 3. [js] 取出token ->mounted
-// V 4. [js] 檢查帳號權限 ->methods ->checkAdmin()
-// V 5. [js] 撈資料的函式 ->methods ->getData()
-// V 6. [html] 綁定表格欄位元素
-// V 7. [js]定義彈出視窗類型 -> productModal、delProductModal
-// V 8. [js]綁定bootstrap彈出視窗 -> mounted -> productModal、delProductModal
-// V 9. [html]綁定按鈕，並調整bootstrap彈出視窗的標籤屬性
-// V 10. [js]打開彈出視窗的函式  -> methods -> openModal() -> 判斷哪個按鈕觸發的對應視窗
-// V 11. [js]更新產品的函式 -> methods -> updateProduct() -> 判斷是新增還是編輯
-// V 12. [html]vue指令綁定表單欄位元素
-// V 13. [js]刪除產品的函式 -> methods -> delProduct()
-// V 14. [js]新增圖片的函式 -> methods -> createImages()
-// V 15. [html]變更新增圖片功能結構
+// V 1. [html] 分頁模板化
+// V 2. [js] 建立分頁元件
+// V 3. [js] 取得分頁資料
+// V 4. [html] 新增分頁
+// 5. [html] 新增編輯視窗模板
+// 6. [js] 建立新增/編輯視窗元件
+// 7. [html] 新增新增/編輯視窗
+// 8. [html] 刪除視窗模板化
+// 9. [js] 建立刪除視窗元件
+// 10. [html] 新增刪除視窗
 
 let productModal;
 let delProductModal;
@@ -32,6 +27,8 @@ const app = Vue.createApp({
             tempProduct: {
                 imagesUrl: [],
             },
+            //分頁內容
+            pagination: {},
         }
     },
     //方法
@@ -50,11 +47,16 @@ const app = Vue.createApp({
         },
 
         //取得資料
-        getData() {
-            const url = `${this.apiUrl}/api/${this.apiPath}/admin/products/all`;
+        getData(page = 1) {
+            const url = `${this.apiUrl}/api/${this.apiPath}/admin/products?page=${page}`;
             axios.get(url)
                 .then(res => {
-                    this.products = res.data.products;
+                    //解構賦值，取出分頁內產品資料
+                    const { products, pagination } = res.data;
+
+                    //分別帶入產品及分頁資料中
+                    this.products = products;
+                    this.pagination = pagination;
                 })
                 .catch(err => {
                     alert(err.response.data.message);
@@ -84,6 +86,40 @@ const app = Vue.createApp({
             }
         },
 
+
+    },
+    //生命週期
+    mounted() {
+        // 取出 Token
+        const token = document.cookie.replace(/(?:(?:^|.*;\s*)hexToken\s*=\s*([^;]*).*$)|^.*$/, '$1');
+        axios.defaults.headers.common.Authorization = token;
+        this.checkAdmin();
+    }
+})
+
+// 分頁元件
+app.component('pagination', {
+    template: '#pagination',
+    props: ['pages'], //自訂名稱
+    methods: {
+        //emitPages 觸發時，item 代表的頁數會傳入 getData
+        emitPages(item) {
+            this.$emit('emit-pages', item)
+        },
+    },
+});
+
+//新增編輯產品元件
+app.component('productModal', {
+    template: '#productModal',
+    props: ['product', 'isNew'],
+    data() {
+        return {
+            apiUrl: 'https://ec-course-api.hexschool.io/v2',
+            apiPath: 'ryanchiang13',
+        };
+    },
+    methods: {
         //更新產品
         updateProduct() {
             //有新增、刪除兩種情況使用 let，預設為新增資料
@@ -92,49 +128,76 @@ const app = Vue.createApp({
 
             //編輯資料的情況
             if (!this.isNew) {
-                url = `${this.apiUrl}/api/${this.apiPath}/admin/product/${this.tempProduct.id}`;
+                url = `${this.apiUrl}/api/${this.apiPath}/admin/product/${this.product.id}`;
                 http = 'put';
             }
 
-            axios[http](url, { data: this.tempProduct })
+            axios[http](url, { data: this.product })
                 .then(res => {
                     alert(res.data.message); //更新提示
-                    productModal.hide(); //隱藏彈出視窗
-                    this.getData(); //重新渲染
-                })
-        },
-
-        //刪除產品
-        delProduct() {
-            const url = `${this.apiUrl}/api/${this.apiPath}/admin/product/${this.tempProduct.id}`;
-
-            axios.delete(url)
-                .then(res => {
-                    alert(res.data.message);
-                    delProductModal.hide();
-                    this.getData;
+                    this.hideModal();//隱藏彈出視窗
+                    this.$emit('update'); //重新渲染
                 })
         },
 
         //新增圖片
         createImages() {
-            this.tempProduct.imagesUrl = [];
-            this.tempProduct.imagesUrl.push('');
-        }
+            this.product.imagesUrl = [];
+            this.product.imagesUrl.push('');
+        },
 
+        openModal() {
+            productModal.show();
+        },
+
+        hideModal() {
+            productModal.hide();
+        },
     },
-    //生命週期
     mounted() {
-        // 取出 Token
-        const token = document.cookie.replace(/(?:(?:^|.*;\s*)hexToken\s*=\s*([^;]*).*$)|^.*$/, '$1');
-        axios.defaults.headers.common.Authorization = token;
+        productModal = new bootstrap.Modal(document.getElementById('productModal'), {
+            keyboard: false,
+            backdrop: 'static',
+        });
 
-        this.checkAdmin();
-
-        //bs彈出視窗
-        productModal = new bootstrap.Modal(document.getElementById('productModal'), { keyboard: false });
-        delProductModal = new bootstrap.Modal(document.getElementById('delProductModal'), { keyboard: false });
     }
-})
+});
 
+//刪除產品元件
+app.component('delProductModal', {
+    template: '#delProductModal',
+    props: ['item'],
+    data() {
+        return {
+            apiUrl: 'https://ec-course-api.hexschool.io/v2',
+            apiPath: 'ryanchiang13',
+        };
+    },
+    methods: {
+        //刪除產品
+        delProduct() {
+            const url = `${this.apiUrl}/api/${this.apiPath}/admin/product/${this.item.id}`;
+
+            axios.delete(url)
+                .then(res => {
+                    alert(res.data.message);
+                    this.hideModal();
+                    this.$emit('update');
+                })
+        },
+        openModal() {
+            delProductModal.show();
+        },
+        hideModal() {
+            delProductModal.hide();
+        },
+    },
+    mounted(){
+        delProductModal = new bootstrap.Modal(document.getElementById('delProductModal'), { 
+            keyboard: false,
+            backdrop: 'static',
+         });
+    }
+
+});
 app.mount('#app');
